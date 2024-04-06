@@ -11,7 +11,6 @@ import Product from "./product.model.js";
 import { addProductValidationSchema } from "./product.validation.js";
 import Order from "../order/order.model.js";
 
-
 const router = express.Router();
 
 // add product system user role => seller
@@ -203,10 +202,8 @@ router.post(
           price: 1,
           description: { $substr: ["$description", 0, 80] },
           image: 1,
-        
         },
       },
-     
     ]);
     const totalProducts = await Product.find(match).countDocuments();
     const numberOfPages = Math.ceil(totalProducts / limit);
@@ -243,12 +240,11 @@ router.post(
     // run query
     const productList = await Product.aggregate([
       { $match: {} },
-       {
+      {
         $sort: { createdAt: -1 },
       },
       { $skip: skip },
       { $limit: limit },
-     
 
       {
         $project: {
@@ -269,62 +265,117 @@ router.post(
 );
 
 // get latest Product
-router.get("/product/list/latest", isUser, async (req, res) => {
+router.get("/product/list/latest", async (req, res) => {
   const products = await Product.aggregate([
     { $match: {} },
     {
       $sort: {
         createdAt: -1,
       },
-     
     },
-    
-    {$limit:5},
-   
-    {$project:{
-      image:1,
-      name:1,
-      price:1,
-      brand:1,
-    }}
+
+    { $limit: 5 },
+
+    {
+      $project: {
+        image: 1,
+        name: 1,
+        price: 1,
+        brand: 1,
+      },
+    },
   ]);
-return res.status(200).send({message:"Success",latestProducts:products})
+  return res.status(200).send({ message: "Success", latestProducts: products });
+});
+
+//--------------------------------------------------------------
+// most sale product
+router.get("/most/sale/products", isUser, async (req, res) => {
+  const orderedProduct = await Order.aggregate([
+    {
+      $group: {
+        _id: "$productId",
+        count: { $sum: 1 },
+      },
+    },
+    {
+      $lookup: {
+        from: "products",
+        localField: "productId",
+        foreignField: "_id",
+        as: "productDetail",
+      },
+    },
+
+    {
+      $project: {
+        productId: "$_id",
+        count: 1,
+        name: { $first: "$productDetail.name" },
+      },
+    },
+  ]);
+
+  console.log(orderedProduct);
+  return res
+    .status(200)
+    .send({ message: "Success", orderedProduct: orderedProduct });
+});
+//---------This Rout is not used------Testing Phase--------------
+
+// get category list
+router.get("/product/category/list", async (req, res) => {
+  const categoryList = await Product.aggregate([
+    { $match: {} },
+
+    {
+      $sort: {
+        category: 1,
+      },
+    },
+
+    {
+      $project: {
+        category: 1,
+        image: 1,
+      },
+    },
+  ]);
+
+// A  New Set is a collection of unique values, meaning it cannot contain duplicate elements.
+  const uniqueIdsSet = new Set();
+  // This line creates a new array
+  const uniqueCategories = categoryList.filter((item) => {
+    // .has checks if the uniqueIdsSet
+    if (!uniqueIdsSet.has(item.category)) {
+    // If the category is unique, this line adds it to the uniqueIdsSet
+      uniqueIdsSet.add(item.category);
+      return true;
+    }
+    return false;
+  });
+
+  return res.status(200).send({ message: "Success", uniqueCategories });
 });
 
 
-// most sale product
-router.get("/most/sale/products", isUser, async(req,res)=>{
-  const orderedProduct = await Order.aggregate([
-   
-   {
-    $group:{
-      _id: "$productId",
-      count:{$sum:1}
-    }
-   },
-   {
-    $lookup: {
-      from: "products",
-      localField: "productId",
-      foreignField: "_id",
-      as: "productDetail",
-    },
-  },
-
-  {
-    $project: {
-      productId: "$_id",
-      count: 1,
-    }
+// get product by category
+router.get("/product/category-list/:id", checkMongoIdValidityFromParams, async (req, res) => {
+  // extract product id from req.params
+  const productId = req.params.id;
+  // find product
+  const product = await Product.findById(productId);
+  // if not product throw error
+  if (!product) {
+    return res.status(404).send({ message: "Product does not exist." });
   }
-  ])
+  const productInSameCategory = await Product.find({
+    category: product.category,
+  });
 
+  res.status(200).send({ message: "Success", productInSameCategory });
+});
 
-return res.status(200).send({message:"Success",orderedProduct:orderedProduct})
-
-})
 
 
 export default router;
-
-

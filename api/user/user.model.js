@@ -41,7 +41,7 @@ const userSchema = new mongoose.Schema({
     enum: ["buyer", "seller"],
   },
   image: {
-    type: String,
+    type: [String],
     required: false,
     trim: true,
     // default: null,

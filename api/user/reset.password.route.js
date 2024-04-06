@@ -50,7 +50,7 @@ router.post(
     console.log(otp)
 
     //send email
-    await sendEmailOTP(user.firstName, otp);
+    await sendEmailOTP(user.firstName, otp,email);
     await Otp.deleteMany();
     await Otp.create({ otp, email });
     return res.status(200).send({ message: "Otp is send to your email." });

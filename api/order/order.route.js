@@ -36,6 +36,7 @@ router.get("/order/list", isSeller, async (req, res) => {
         orderedQuantity: 1,
         subTotal: 1,
         paymentStatus: 1,
+        productId: 1,
         buyerData: {
           firstName: { $first: "$buyerDetails.firstName" },
           lastName: { $first: "$buyerDetails.lastName" },
@@ -48,17 +49,40 @@ router.get("/order/list", isSeller, async (req, res) => {
           availableQuantity: { $first: "$productDetail.quantity" },
         },
       },
-      
     },
   ]);
 
+  const updateQuantity = await Promise.all(
+    orders.map(async (item) => {
+      const totalProductQuantity = item.productData.availableQuantity;
+      const totalOrderedQuantity = item.orderedQuantity;
+      const status = item.paymentStatus;
 
+      if (status === "Completed") {
+        try {
+          const updatedQuantity = totalProductQuantity - totalOrderedQuantity;
 
-  return res
-    .status(200)
-    .send({ message: "Success", orders:orders });
+         await Product.updateOne(
+            { _id: item.productId},
+            { $set: { availableQuantities: updatedQuantity } }
+          );
+          return {success:true}
+          
+        } catch (error) {
+          return {success: false, error}
+          
+        }
+       
+      }else{
+        return {success: false,error: "Payment status not Completed"}
+      }
+    })
+  );
 
+  console.log(updateQuantity);
+
+  
+  return res.status(200).send({ message: "Success", updateQuantity:updateQuantity });
 });
- 
 
 export default router;
